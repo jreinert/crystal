@@ -1,5 +1,3 @@
-require "secure_random"
-
 abstract class HTTP::WebSocketFrame
   @[Flags]
   enum Flags : UInt8
@@ -60,9 +58,19 @@ abstract class HTTP::WebSocketFrame
   class MaskIO < StringIO
     getter key
 
-    def initialize(@key = SecureRandom.random_bytes(4) : Slice(UInt8))
+    def initialize(@key = generate_key : Slice(UInt8))
       super()
       @index = 0
+    end
+
+    def self.generate_key
+      key = Slice(UInt8).new(4)
+      loop do
+        key_int = rand
+        key.copy_from((pointerof(key_int) as UInt8[4]*).value.to_slice.pointer(4), 4)
+        break if key_int != 0
+      end
+      key
     end
 
     def read(slice : Slice(UInt8))
