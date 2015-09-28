@@ -626,11 +626,11 @@ module IO
     write Slice.new(pointerof(x), 1)
   end
 
-  def write_object(object, format = IO::ByteFormat::SystemEndian : IO::ByteFormat)
+  def write_object(object, format = ByteFormat::SystemEndian : ByteFormat)
     object.to_io(self, format)
   end
 
-  def read_object(klass, format = IO::ByteFormat::SystemEndian : IO::ByteFormat)
+  def read_object(klass, format = ByteFormat::SystemEndian : ByteFormat)
     klass.from_io(self, format)
   end
 

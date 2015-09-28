@@ -78,11 +78,15 @@ struct Float
     end
   end
 
-  def to_io(io : IO, format : IO::ByteFormat)
-    format.encode(self, io)
+  def to_io(io : IO, format : ByteFormat)
+    io.write(bytes(format).to_slice)
   end
 
-  def self.from_io(io : IO, format : IO::ByteFormat)
+  def bytes(format : ByteFormat)
+    format.encode(self)
+  end
+
+  def self.from_io(io : IO, format : ByteFormat)
     format.decode(self, io)
   end
 end
