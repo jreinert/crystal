@@ -1,5 +1,6 @@
 require "spec"
 require "http"
+require "secure_random"
 
 class TestFrame < HTTP::WebSocketFrame
   OPCODE = Opcode::TEST
