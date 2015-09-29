@@ -58,17 +58,13 @@ abstract class HTTP::WebSocketFrame
   class MaskIO < StringIO
     getter key
 
-    def initialize(@key = generate_key : Slice(UInt8))
+    def initialize(@key = generate_key : Int32)
       super()
       @index = 0
     end
 
     def self.generate_key
-      key = Slice(UInt8).new(4)
-      loop do
-        key_int = rand
-        key.copy_from((pointerof(key_int) as UInt8[4]*).value.to_slice.pointer(4), 4)
-        break if key_int != 0
+      while (key = Random::DEFAULT.next_int) == 0
       end
       key
     end
@@ -81,8 +77,9 @@ abstract class HTTP::WebSocketFrame
 
     def write(slice : Slice(UInt8))
       masked_slice = Slice(UInt8).new(slice.size)
+      key_bytes = @key.bytes(ByteFormat::NetworkEndian)
       slice.each_with_index do |byte, index|
-        mask = @key[(@index % 4 + index) % 4]
+        mask = key_bytes[(@index % 4 + index) % 4]
         masked_slice[index] = byte ^ mask
       end
 
@@ -100,7 +97,7 @@ abstract class HTTP::WebSocketFrame
     @payload = masked? ? MaskIO.new : StringIO.new
   end
 
-  def mask(key)
+  def mask(key : Int32)
     return if payload.try { |p| p.is_a?(MaskIO) && p.key } == key
     mask_io = MaskIO.new(key)
     buffer = Slice(UInt8).new(1024)
@@ -141,32 +138,31 @@ abstract class HTTP::WebSocketFrame
     payload.size
   end
 
-  def header
-    @header ||= begin
-      size_slice = self.size_slice
-      header_size = size_slice.size + (masked? ? 5 : 1)
-      slice = Slice(UInt8).new(header_size)
-      slice[0] |= flags.value
-      slice[0] |= opcode.value
-      slice[1] |= MASKED if masked?
-      slice[1] |= size_slice[0]
-      (slice + 2).copy_from((size_slice + 1).pointer(size_slice.size - 1), size_slice.size - 1)
-      if masked?
-        mask_io = @payload as MaskIO
-        (slice + (1 + size_slice.size)).copy_from(mask_io.key.pointer(4), 4)
-      end
+  def write_header(io)
+    io.write_byte(flags.value | opcode.value)
+    write_size(io)
+    payload = @payload
+    io.write_object(payload.key, ByteFormat::NetworkEndian) if payload.is_a?(MaskIO)
+  end
 
-      slice
+  private def write_size(io)
+    size = payload_size
+    masked_bit = masked? ? MASKED : 0_u8
+    if size < 126
+      io.write_byte(masked_bit | size.to_u8)
+    elsif size <= 0xffff
+      io.write_byte(masked_bit | EXTENDED_SIZE)
+      io.write_object(size.to_u16, ByteFormat::NetworkEndian)
+    else
+      io.write_byte(masked_bit | EXTRA_EXTENDED_SIZE)
+      io.write_object(size.to_u64, ByteFormat::NetworkEndian)
     end
   end
 
   def to_io(io)
-    io.write(header)
-    buffer = Slice(UInt8).new(1024)
+    write_header(io)
     payload.rewind
-    while (count = payload.read(buffer)) != 0
-      io.write(buffer[0, count])
-    end
+    IO.copy(payload, io)
   end
 
   macro def self.from_io(io) : WebSocketFrame
@@ -174,10 +170,8 @@ abstract class HTTP::WebSocketFrame
     io.read_fully(header.to_slice)
     opcode = opcode_from(header[0])
     frame = case(opcode)
-    {% for subclass in @type.subclasses %}
-      {% unless subclass.abstract? %}
-        when {{subclass.id}}::OPCODE then {{subclass.id}}.new
-      {% end %}
+    {% for subclass in @type.all_subclasses.reject(&.abstract?) %}
+      when {{subclass.id}}::OPCODE then {{subclass.id}}.new
     {% end %}
     else raise "no frame implemented for opcode #{opcode}"
     end
@@ -185,59 +179,18 @@ abstract class HTTP::WebSocketFrame
     frame.flags_from(header[0])
     size = header[1] & ~MASKED
     if size == EXTENDED_SIZE
-      size = io.read_byte.not_nil!.to_u16 << 8
-      size |= io.read_byte.not_nil!
+      size = io.read_object(UInt16, ByteFormat::NetworkEndian)
     elsif size == EXTRA_EXTENDED_SIZE
-      size = 0_u64
-      8.times do |i|
-        size << 8
-        size |= io.read_byte.not_nil!
-      end
+      size = io.read_object(UInt64, ByteFormat::NetworkEndian)
     end
 
     if (header[1] & MASKED) != 0
-      masking_key :: UInt8[4]
-      io.read_fully(masking_key.to_slice)
-      frame.mask(masking_key.to_slice)
+      masking_key = io.read_object(Int32, ByteFormat::NetworkEndian)
+      frame.mask(masking_key)
     end
 
-    frame.read_payload(io, size)
+    IO.copy(io, frame.payload)
 
     frame
-  end
-
-  protected def read_payload(io, size)
-    buffer = Slice(UInt8).new(1024)
-    left = size
-    loop do
-      break if left == 0
-      count = Math.min(buffer.size, left)
-      buffer = buffer[0, count]
-      io.read(buffer)
-      payload.write(buffer)
-      left -= count
-    end
-  end
-
-  protected def size_slice
-    case(payload_size)
-    when 0..125
-      Slice(UInt8).new(1) { payload_size.to_u8 }
-    when 126..0xffff
-      slice = Slice(UInt8).new(3)
-      slice[0] = EXTENDED_SIZE
-      slice[1] = (payload_size >> 7).to_u8
-      slice[2] = (payload_size & 0x00ff).to_u8
-      slice
-    else
-      slice = Slice(UInt8).new(9)
-      slice[0] = EXTRA_EXTENDED_SIZE
-      mask = 0xff_00_00_00_00_00_00_00_u64
-      8.times do |i|
-        slice[1 + i] = ((payload_size & mask) >> (8 * (7 - i))).to_u8
-        mask >>= 8
-      end
-      slice
-    end
   end
 end

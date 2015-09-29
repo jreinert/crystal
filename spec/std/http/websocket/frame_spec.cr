@@ -1,6 +1,5 @@
 require "spec"
 require "http"
-require "secure_random"
 
 class TestFrame < HTTP::WebSocketFrame
   OPCODE = Opcode::TEST
@@ -72,8 +71,8 @@ describe HTTP::WebSocketFrame do
       io = StringIO.new
       io.write_byte(TestFrame::OPCODE.value)
       io.write_byte(TestFrame::MASKED | 6_u8) # masked with size of 6
-      masking_key = SecureRandom.random_bytes(4)
-      io.write(masking_key)
+      masking_key = Random::DEFAULT.next_int.bytes(ByteFormat::NetworkEndian)
+      io.write(masking_key.to_slice)
       "foobar".each_byte.each_with_index do |byte, index|
         io.write_byte(byte ^ masking_key[index % 4])
       end
@@ -111,8 +110,8 @@ describe HTTP::WebSocketFrame do
       io.write_byte(TestFrame::MASKED | TestFrame::EXTENDED_SIZE)
       size = StaticArray(UInt8, 2).new(0xff_u8)
       io.write(size.to_slice) # size of 0xffff
-      masking_key = SecureRandom.random_bytes(4)
-      io.write(masking_key)
+      masking_key = Random::DEFAULT.next_int.bytes(ByteFormat::NetworkEndian)
+      io.write(masking_key.to_slice)
       payload = StringIO.new
       0xffff.times do |index|
         byte = 'a'.ord.to_u8
@@ -225,7 +224,7 @@ describe HTTP::WebSocketFrame do
 
     it "masks the payload correctly" do
       frame = TestFrame.new
-      key = SecureRandom.random_bytes(4)
+      key = Random::DEFAULT.next_int
       frame.mask(key)
       frame.payload << "a" * 126
       io = StringIO.new
@@ -234,9 +233,10 @@ describe HTTP::WebSocketFrame do
       8.times { io.read_byte.not_nil! } # skipping header, extended size and mask key
 
       a = 'a'.ord.to_u8
+      key_bytes = key.bytes(ByteFormat::NetworkEndian)
       payload = String.build do |builder|
         126.times do |i|
-          builder.write_byte(io.read_byte.not_nil! ^ key[i % 4])
+          builder.write_byte(io.read_byte.not_nil! ^ key_bytes[i % 4])
         end
       end
       payload.should eq("a" * 126)
