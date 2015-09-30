@@ -54,7 +54,7 @@ describe HTTP::WebSocketFrame do
       frame.rsv3?.should be_true
     end
 
-    it "reads the unmasked payload correctly when size < 125" do
+    it "reads the unmasked payload correctly when size < 126" do
       io = StringIO.new
       io.write_byte(TestFrame::OPCODE.value)
       io.write_byte(6_u8) # size of 6
@@ -67,7 +67,7 @@ describe HTTP::WebSocketFrame do
       frame.payload.to_s.should eq("foobar")
     end
 
-    it "reads the masked payload correctly when size < 125" do
+    it "reads the masked payload correctly when size < 126" do
       io = StringIO.new
       io.write_byte(TestFrame::OPCODE.value)
       io.write_byte(TestFrame::MASKED | 6_u8) # masked with size of 6
