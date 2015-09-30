@@ -243,4 +243,29 @@ describe HTTP::WebSocketFrame do
       io.gets.should be_nil
     end
   end
+
+  it "has subclasses for all opcodes" do
+    {% for opcode in HTTP::WebSocketFrame::Opcode.constants %}
+      {{
+        HTTP::WebSocketFrame.all_subclasses.reject(&.abstract?).map { |klass| "#{klass}::OPCODE".id }
+      }}.should contain(HTTP::WebSocketFrame::Opcode::{{opcode}})
+    {% end %}
+  end
+
+  {% for subclass in HTTP::WebSocketFrame.all_subclasses.reject(&.abstract?) %}
+    {% unless subclass == TestFrame %}
+      describe {{subclass}} do
+        describe ".from_io" do
+          it "returns a frame of the correct type" do
+            io = StringIO.new
+            io.write_byte({{subclass}}::OPCODE.value)
+            io.write_byte(0_u8) # size of 0
+            io.rewind
+            frame = io.read_object(HTTP::WebSocketFrame, ByteFormat::NetworkEndian)
+            frame.should be_a({{subclass}})
+          end
+        end
+      end
+    {% end %}
+  {% end %}
 end
