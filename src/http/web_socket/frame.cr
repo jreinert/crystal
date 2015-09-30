@@ -148,7 +148,7 @@ abstract class HTTP::WebSocketFrame
   private def write_size(io, format)
     size = payload_size
     masked_bit = masked? ? MASKED : 0_u8
-    if size < 126
+    if size < 0x7e
       io.write_byte(masked_bit | size.to_u8)
     elsif size <= 0xffff
       io.write_byte(masked_bit | EXTENDED_SIZE)
