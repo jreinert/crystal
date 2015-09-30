@@ -13,7 +13,7 @@ describe HTTP::WebSocketFrame do
       io.write_byte(0_u8) # size of 0
       io.rewind
 
-      frame = HTTP::WebSocketFrame.from_io(io)
+      frame = io.read_object(HTTP::WebSocketFrame, ByteFormat::NetworkEndian)
       io.gets.should be_nil
       frame.should be_a(TestFrame)
     end
@@ -24,7 +24,7 @@ describe HTTP::WebSocketFrame do
       io.write_byte(0_u8) # size of 0
       io.rewind
 
-      frame = HTTP::WebSocketFrame.from_io(io)
+      frame = io.read_object(HTTP::WebSocketFrame, ByteFormat::NetworkEndian)
       frame.opcode.should eq(TestFrame::OPCODE)
     end
 
@@ -34,7 +34,7 @@ describe HTTP::WebSocketFrame do
       io.write_byte(0_u8) # size of 0
       io.rewind
 
-      frame = HTTP::WebSocketFrame.from_io(io)
+      frame = io.read_object(HTTP::WebSocketFrame, ByteFormat::NetworkEndian)
       frame.final?.should be_true
       frame.rsv1?.should be_false
       frame.rsv2?.should be_false
@@ -47,7 +47,7 @@ describe HTTP::WebSocketFrame do
       )
       io.rewind
 
-      frame = HTTP::WebSocketFrame.from_io(io)
+      frame = io.read_object(HTTP::WebSocketFrame, ByteFormat::NetworkEndian)
       frame.final?.should be_false
       frame.rsv1?.should be_true
       frame.rsv2?.should be_false
@@ -61,7 +61,7 @@ describe HTTP::WebSocketFrame do
       io.write("foobar".to_slice)
       io.rewind
 
-      frame = HTTP::WebSocketFrame.from_io(io)
+      frame = io.read_object(HTTP::WebSocketFrame, ByteFormat::NetworkEndian)
       frame.masked?.should be_false
       io.gets.should be_nil
       frame.payload.to_s.should eq("foobar")
@@ -78,7 +78,7 @@ describe HTTP::WebSocketFrame do
       end
       io.rewind
 
-      frame = HTTP::WebSocketFrame.from_io(io)
+      frame = io.read_object(HTTP::WebSocketFrame, ByteFormat::NetworkEndian)
       frame.masked?.should be_true
       io.gets.should be_nil
       frame.payload.to_s.should eq("foobar")
@@ -98,7 +98,7 @@ describe HTTP::WebSocketFrame do
       end
       io.rewind
 
-      frame = HTTP::WebSocketFrame.from_io(io)
+      frame = io.read_object(HTTP::WebSocketFrame, ByteFormat::NetworkEndian)
       frame.masked?.should be_false
       io.gets.should be_nil
       frame.payload.to_s.should eq(payload.to_s)
@@ -120,7 +120,7 @@ describe HTTP::WebSocketFrame do
       end
       io.rewind
 
-      frame = HTTP::WebSocketFrame.from_io(io)
+      frame = io.read_object(HTTP::WebSocketFrame, ByteFormat::NetworkEndian)
       frame.masked?.should be_true
       io.gets.should be_nil
       frame.payload.to_s.should eq(payload.to_s)
@@ -141,7 +141,7 @@ describe HTTP::WebSocketFrame do
         end
       end
 
-      frame = HTTP::WebSocketFrame.from_io(io)
+      frame = io.read_object(HTTP::WebSocketFrame, ByteFormat::NetworkEndian)
       frame.masked?.should be_false
       io.gets.should be_nil
       frame.payload.should eq(payload)
@@ -152,7 +152,7 @@ describe HTTP::WebSocketFrame do
     it "writes a correct header" do
       frame = TestFrame.new
       io = StringIO.new
-      frame.to_io(io)
+      io.write_object(frame, ByteFormat::NetworkEndian)
       io.rewind
 
       header :: UInt8[2]
@@ -168,7 +168,7 @@ describe HTTP::WebSocketFrame do
       frame = TestFrame.new
       frame.payload << "foobar" # size of 6
       io = StringIO.new
-      frame.to_io(io)
+      io.write_object(frame, ByteFormat::NetworkEndian)
       io.rewind
 
       header :: UInt8[2]
@@ -180,7 +180,7 @@ describe HTTP::WebSocketFrame do
       frame = TestFrame.new
       frame.payload << "foobar" # size of 6
       io = StringIO.new
-      frame.to_io(io)
+      io.write_object(frame, ByteFormat::NetworkEndian)
       io.rewind
 
       2.times { io.read_byte.not_nil! } # skipping header
@@ -194,7 +194,7 @@ describe HTTP::WebSocketFrame do
       frame = TestFrame.new
       frame.payload << "a" * 126
       io = StringIO.new
-      frame.to_io(io)
+      io.write_object(frame, ByteFormat::NetworkEndian)
       io.rewind
       header :: UInt8[2]
       io.read_fully(header.to_slice)
@@ -212,7 +212,7 @@ describe HTTP::WebSocketFrame do
       frame = TestFrame.new
       frame.payload << "a" * 126
       io = StringIO.new
-      frame.to_io(io)
+      io.write_object(frame, ByteFormat::NetworkEndian)
       io.rewind
       4.times { io.read_byte.not_nil! } # skipping header and exended size
 
@@ -228,7 +228,7 @@ describe HTTP::WebSocketFrame do
       frame.mask(key)
       frame.payload << "a" * 126
       io = StringIO.new
-      frame.to_io(io)
+      io.write_object(frame, ByteFormat::NetworkEndian)
       io.rewind
       8.times { io.read_byte.not_nil! } # skipping header, extended size and mask key
 

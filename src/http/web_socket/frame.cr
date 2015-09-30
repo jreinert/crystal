@@ -138,34 +138,34 @@ abstract class HTTP::WebSocketFrame
     payload.size
   end
 
-  def write_header(io)
+  def write_header(io, format)
     io.write_byte(flags.value | opcode.value)
-    write_size(io)
+    write_size(io, format)
     payload = @payload
-    io.write_object(payload.key, ByteFormat::NetworkEndian) if payload.is_a?(MaskIO)
+    io.write_object(payload.key, format) if payload.is_a?(MaskIO)
   end
 
-  private def write_size(io)
+  private def write_size(io, format)
     size = payload_size
     masked_bit = masked? ? MASKED : 0_u8
     if size < 126
       io.write_byte(masked_bit | size.to_u8)
     elsif size <= 0xffff
       io.write_byte(masked_bit | EXTENDED_SIZE)
-      io.write_object(size.to_u16, ByteFormat::NetworkEndian)
+      io.write_object(size.to_u16, format)
     else
       io.write_byte(masked_bit | EXTRA_EXTENDED_SIZE)
-      io.write_object(size.to_u64, ByteFormat::NetworkEndian)
+      io.write_object(size.to_u64, format)
     end
   end
 
-  def to_io(io)
-    write_header(io)
+  def to_io(io, format)
+    write_header(io, format)
     payload.rewind
     IO.copy(payload, io)
   end
 
-  macro def self.from_io(io) : WebSocketFrame
+  macro def self.from_io(io, format) : WebSocketFrame
     header :: UInt8[2]
     io.read_fully(header.to_slice)
     opcode = opcode_from(header[0])
@@ -179,13 +179,13 @@ abstract class HTTP::WebSocketFrame
     frame.flags_from(header[0])
     size = header[1] & ~MASKED
     if size == EXTENDED_SIZE
-      size = io.read_object(UInt16, ByteFormat::NetworkEndian)
+      size = io.read_object(UInt16, format)
     elsif size == EXTRA_EXTENDED_SIZE
-      size = io.read_object(UInt64, ByteFormat::NetworkEndian)
+      size = io.read_object(UInt64, format)
     end
 
     if (header[1] & MASKED) != 0
-      masking_key = io.read_object(Int32, ByteFormat::NetworkEndian)
+      masking_key = io.read_object(Int32, format)
       frame.mask(masking_key)
     end
 
