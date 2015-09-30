@@ -85,6 +85,10 @@ struct Float
   def bytes(format : ByteFormat)
     format.encode(self)
   end
+
+  def self.from_io(io : IO, format : ByteFormat)
+    format.decode(self, io)
+  end
 end
 
 struct Float32

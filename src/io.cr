@@ -626,8 +626,12 @@ module IO
     write Slice.new(pointerof(x), 1)
   end
 
-  def write_bytes(object, format = ByteFormat::SystemEndian : ByteFormat)
+  def write_object(object, format = ByteFormat::SystemEndian : ByteFormat)
     object.to_io(self, format)
+  end
+
+  def read_object(klass, format = ByteFormat::SystemEndian : ByteFormat)
+    klass.from_io(self, format)
   end
 
   # Returns `true` if this IO is associated with a terminal device (tty), `false` otherwise.
