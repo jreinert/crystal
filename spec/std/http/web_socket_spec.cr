@@ -168,6 +168,16 @@ describe HTTP::WebSocket do
          bytes[10 + i].should eq('a'.ord)
        end
      end
+
+    it "sets binary opcode if used with slice" do
+      sent_bytes :: UInt8[4]
+
+      io = StringIO.new
+      ws = HTTP::WebSocket.new(io)
+      ws.send(sent_bytes.to_slice, true)
+      bytes = io.to_slice
+      (bytes[0] & 0x0f).should eq(0x02)
+    end
   end
 
   describe "send_masked" do
