@@ -1189,6 +1189,7 @@ module Crystal
     property? global : Bool
     property name_size = 0
     property visibility = Visibility::Public
+    property section : String?
 
     def initialize(@names : Array, @global = false)
     end

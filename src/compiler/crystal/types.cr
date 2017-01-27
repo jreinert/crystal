@@ -2733,9 +2733,15 @@ module Crystal
     property? used = false
     property? visited = false
     property visitor : MainVisitor?
+    property section : String?
 
-    def initialize(program, namespace, name, @value)
+    def initialize(program, namespace, name, @value, @section = nil)
       super(program, namespace, name)
+    end
+
+    def has_attribute?(name)
+      return true if section && name == "Section"
+      false
     end
 
     def type_desc

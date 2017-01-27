@@ -62,6 +62,14 @@ module LLVM::ValueMethods
     LibLLVM.is_global_constant(self) != 0
   end
 
+  def section=(section)
+    LibLLVM.set_section(self, section)
+  end
+
+  def section
+    String.new(LibLLVM.get_section(self))
+  end
+
   def initializer=(initializer)
     LibLLVM.set_initializer(self, initializer)
   end

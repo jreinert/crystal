@@ -34,6 +34,7 @@ class Crystal::TopLevelVisitor < Crystal::SemanticVisitor
   ValidFunDefAttributes    = %w(AlwaysInline Naked NoInline Raises ReturnsTwice CallConvention)
   ValidStructDefAttributes = %w(Packed)
   ValidEnumDefAttributes   = %w(Flags)
+  ValidConstDefAttributes  = %w(Section)
 
   # These are `new` methods (expanded) that was created from `initialize` methods (original)
   getter new_expansions = [] of {original: Def, expanded: Def}
@@ -358,6 +359,19 @@ class Crystal::TopLevelVisitor < Crystal::SemanticVisitor
     node.body = Primitive.new(value)
   end
 
+  private def process_section_attribute(attribute)
+    if attribute.args.size != 1
+      attribute.raise "expected Section attribute to have one argument"
+    end
+
+    arg = attribute.args.first
+    unless arg.is_a?(SymbolLiteral)
+      arg.raise "expected Section argument to be a symbol literal"
+    end
+
+    arg.value.to_s
+  end
+
   def visit(node : Include)
     check_outside_exp node, "include"
     include_in current_type, node, :included
@@ -616,16 +630,23 @@ class Crystal::TopLevelVisitor < Crystal::SemanticVisitor
 
     scope = current_type_scope(target)
 
-    type = scope.types[target.names.first]?
+    name = target.names.first
+    type = scope.types[name]?
     if type
       target.raise "already initialized constant #{type}"
     end
 
-    const = Const.new(@program, scope, target.names.first, value)
+    attributes = check_valid_attributes node, ValidConstDefAttributes, name
+    section_attribute = attributes.try &.find { |attr| attr.name == "Section" }
+    section = process_section_attribute(section_attribute) if section_attribute
+
+    const = Const.new(@program, scope, name, value)
     const.private = true if target.visibility.private?
+    const.section = section if section
+
     attach_doc const, node
 
-    scope.types[target.names.first] = const
+    scope.types[name] = const
 
     target.target_const = const
   end

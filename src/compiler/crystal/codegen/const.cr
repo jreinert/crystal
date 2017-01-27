@@ -49,6 +49,7 @@ class Crystal::CodeGenVisitor
     global = @main_mod.globals[global_name]? ||
              @main_mod.globals.add(llvm_type(const.value.type), global_name)
     global.linkage = LLVM::Linkage::Internal if @single_module
+    const.section.try { |section| global.section = section }
     global
   end
 

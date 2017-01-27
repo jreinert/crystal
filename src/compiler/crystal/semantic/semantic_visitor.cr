@@ -390,10 +390,10 @@ abstract class Crystal::SemanticVisitor < Crystal::Visitor
         attr.raise "illegal attribute for #{desc}, valid attributes are: #{valid_attributes.join ", "}"
       end
 
-      if attr.name != "Primitive"
-        if !attr.args.empty? || attr.named_args
-          attr.raise "#{attr.name} attribute can't receive arguments"
-        end
+      next if %w(Primitive Section).includes?(attr.name)
+
+      if !attr.args.empty? || attr.named_args
+        attr.raise "#{attr.name} attribute can't receive arguments"
       end
     end
 

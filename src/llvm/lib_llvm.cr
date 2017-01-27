@@ -223,6 +223,8 @@ lib LibLLVM
   fun finalize_function_pass_manager = LLVMFinalizeFunctionPassManager(fpm : PassManagerRef) : Int32
   fun set_cleanup = LLVMSetCleanup(lpad : ValueRef, val : Int32)
   fun set_global_constant = LLVMSetGlobalConstant(global : ValueRef, is_constant : Int32)
+  fun set_section = LLVMSetSection(global : ValueRef, section : UInt8*)
+  fun get_section = LLVMGetSection(global : ValueRef) : UInt8*
   fun is_global_constant = LLVMIsGlobalConstant(global : ValueRef) : Int32
   fun set_initializer = LLVMSetInitializer(global_var : ValueRef, constant_val : ValueRef)
   fun get_initializer = LLVMGetInitializer(global_var : ValueRef) : ValueRef
